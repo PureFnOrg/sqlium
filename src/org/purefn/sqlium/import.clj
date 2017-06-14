@@ -50,7 +50,7 @@
     (let [many-data (fetch-results db sql-with-aliases)
           many-rels (get-in rel [:target :relationships :many])]
       (reduce (fn [data rel]
-                (let [rel-data (import-many-relationship rel data)]
+                (let [rel-data (import-many-relationship db rel data)]
                   (join-results rel data rel-data)))
               many-data
               many-rels))))
