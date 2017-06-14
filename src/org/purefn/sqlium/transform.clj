@@ -14,7 +14,7 @@
   "Takes the xform field from a field spec and returns a transform
    function. Handles mapping of built-in transforms."
   [xform]
-  (binding [*ns* (the-ns 'platform.services.private.digdug.transform)]
+  (binding [*ns* (the-ns 'org.purefn.sqlium.transform)]
     (eval xform)))
 
 (defn- alias-path
