@@ -318,7 +318,7 @@
                                    :query cur-query
                                    :position position
                                    :total cnt)
-                      table-data (fetch-results [cur-query col-aliases])
+                      table-data (fetch-results db [cur-query col-aliases])
                       entity-data
                       (reduce (fn [data rel]
                                 (if-let [rel-data (import-many-relationship db rel data)]
