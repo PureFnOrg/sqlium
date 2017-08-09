@@ -308,7 +308,8 @@
            (next-batch batches 0))
           ([batches position]
            (let [cur (first batches)]
-             (when (seq cur)
+             (if-not (seq cur)
+               (list)
                (lazy-seq
                 (let [cur-query (str data-query " WHERE "
                                      (sql/in-statement  {:field id-col
