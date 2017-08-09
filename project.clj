@@ -1,4 +1,4 @@
-(defproject org.purefn/sqlium "0.1.0"
+(defproject org.purefn/sqlium "0.1.1-SNAPSHOT"
   :description "A flexible, Datomic-inspired, config-driven Extraction system (big E in ETL)."
   :url "http://github.com/TheLadders/sqlium"
   :license {:name "Eclipse Public License"
