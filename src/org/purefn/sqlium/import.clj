@@ -6,7 +6,9 @@
             [clj-time.core :as time]
             [clj-time.coerce :as tc]
             [org.purefn.sqlium.dsl :as dsl]
-            [org.purefn.sqlium.sql :as sql]))
+            [org.purefn.sqlium.sql :as sql])
+  (:import java.util.ArrayList
+           java.sql.ResultSet))
 
 (def default-batch-size 10000)
 
@@ -39,6 +41,22 @@
     ;; TODO: fix jdbc call
     (->> (jdbc/query db [sql])
          (map #(set/rename-keys % col-aliases)))))
+
+(defn- result-set-column-list
+  "Extracts a single column by name from each row of a ResultSet,
+   adding it to an ArrayList."
+  [^ResultSet rs colname]
+  (let [alist (ArrayList. 1000)]
+    (while (.next rs)
+      (.add alist (.getObject rs colname)))
+    alist))
+
+(defn fetch-column
+  "Efficient, low-level query function to return a collection of a
+   single column. Takes a sql query, the column name to fetch, and
+   returns an ArrayList with the values of that column."
+  [db query column]
+  (jdbc/db-query-with-resultset db [query] #(result-set-column-list % column)))
 
 (defn import-many-relationship
   "Takes a db, a many relationship map and collection of source table data,
@@ -295,7 +313,7 @@
          _ (log/debug :fn "import-table"
                       :msg "Fetching ids"
                       :query ids-q)
-         ids (mapcat vals (fetch-results db [ids-q {}]))
+         ids (fetch-column db ids-q "id")
          cnt (count ids)
          _ (log/info :fn "import-table"
                      :msg (str "Fetched " cnt " ids"))
