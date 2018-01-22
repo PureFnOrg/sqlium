@@ -190,8 +190,8 @@
         repeated (repeated-join-tables (:one promoted-relationships))]
     (when repeated
       (throw (ex-info "Invalid relationships detected - repeated use of the same table."
-                      {:repeated repeated}
-                      {:source-table (dissoc table :fields)})))
+                      {:repeated repeated
+                       :source-table (dissoc table :fields)})))
     (assoc table
            :fields fields
            :relationships promoted-relationships)))
