@@ -121,13 +121,184 @@ sqlium provides a DSL to do just that.
 
 ## sqlium DSL
 
+In sqlium, the equivalent to the above Pull syntax example to get the
+contents of an album might look like this:
 
+``` clojure
+(Table albums
+       :id "album_id"
+       :fields "name"
+       {["_album_id" :as "artists"]
+        (Table album_artists
+               :id "album_artist_id"
+               :fields
+               {["artist_id" :flatten]
+                (Table artists
+                       :id "artist_id"
+                       :fields "name")})}
+       {["_album_id" :as "tracks"
+         (Table album_tracks
+                :id "album_track_id"
+                :fields
+                {["track_id" :flatten]
+                 (Table tracks
+                        :id "track_id"
+                        :fields "name" "number"
+                        {["_track_id" :as "artists"]
+                         (Table track_artists
+                                :id "track_artist_id"
+                                :fields
+                                {["artist_id" :flatten]
+                                 (Table artists
+                                        :id "artist_id"
+                                        :fields "name")})}
+                        {["_track_id" :as "songwriters"]
+                         (Table track_songwriters
+                                :id "track_songwriter_id"
+                                :fields
+                                {["artist_id" :flatten]
+                                 (Table artists
+                                        :id "artist_id"
+                                        :fields "name")})}
+                        {["_track_id" :as "producers"]
+                         (Table track_producers
+                                :id "track_producer_id"
+                                :fields
+                                {["artist_id" :flatten]
+                                 (Table artists
+                                        :id "artist_id"
+                                        :fields "name")})})})]})
+```
 
+Here's a piece-by-piece explanation of the syntax.
 
+### Table spec
+
+This is the basic building block of sqlium's DSL. It describes some
+basic information about a databse table, the data that we're
+interested in from the table, and relationships with other tables that
+we are interested in.
+
+```clojure
+(Table name id-spec? :fields data-spec+)
+```
+
+The table's name is a symbol, which should match the name of the table
+in the database.
+
+sqlium uses the idea of identity (aka primary key) columns throughout,
+specified in the id-spec. This is optional because it has a default
+value of `<table_name>_id`. If your database uses a different naming
+convention or otherwise has custom names for identiy columns, then you
+need to provide it for each table.
+
+An id-spec looks like: `:id "id-column-name"`.
+
+### Data specs
+
+A data spec is either a field or a relationship.
+
+#### Fields
+
+Fields describe the data columns from the table that you're interested
+in. They come in two forms. Simple field specs are just strings that
+match the name of the column in the table. No transformations will be
+applied to the column name or the data for simple field specs - the
+name will be keywordified in the output map but otherwise will be
+returned verbatim.
+
+You can also specify several options in a complex field spec. It looks like:
+
+```clojure
+[col-name alias? transform?]
+```
+
+Aliasing sets the key name in the output map for a given field. Alias
+is specified with an :as keyword and a string alias name. For example,
+`["oldname" :as "newname"]` will add a `:newname` key to the output
+map with the contents of the "oldname" column. Nested aliases are also
+supported using a "." separator. For example, `["oldname" :as
+"new.name"]` will nest the value of the "oldname" column as in
+`(assoc-in output-map [:new :name] oldname-val)`.
+
+sqlium supports a number of simple data transforms. A transform can be
+either a function literal or reference to a symbol that's in scope for
+the `org.purefn.sqlium.transform` namespace. This namespace includes a
+built-in transform called `binary-string` which handles UTF-8 strings
+encoded as BLOB/binary in the database. The clojure.set namespace is
+also available as `set`, and the clojure.string namespace is available
+as `str`.
+
+Using code from your own namespaces in sqlium transforms is not
+supported at this time. Generally sqlium transforms are meant to be
+for quite simple typecasts, filtering, or replacement operations, and
+for more involved transformations you should generally perform them on
+the returned entity.
+
+nil values will not be added to the output.
+
+#### Relationships
+
+A relationship is how nested tables are added to an entity - aka a
+"join".
+
+sqlium understands two types of relationships: one-to-one, and one-to-many.
+
+A one-to-one relationship is one in which the some column in the
+parent table points to the id column of the child table. Since sqlium
+assumes that id columns are unique, there will only be one row in the
+child table for the relationship. If an id column in a one-to-one
+relatinship is not unique, you'll get a cartesian product and multiple
+entities will be returned.
+
+A one-to-many relationship is one in which some column in the child
+table points to the id column of the parent table. These will always
+be returned as collections.
+
+Relationships are specified as maps with one key, in this form:
+
+```clojure
+{join-spec table-spec}
+```
+
+A `join-spec` is has two different forms, for one-to-one and
+one-to-many joins.
+
+One-to-one:
+
+```clojure
+[foreign-key flatten-or-alias?]
+```
+
+The `foreign-key` for a one-to-one relationship is the name of the
+column in the parent table. One-to-one relationships can also be
+flattened with a `:flatten` keyword, which means that the data from
+the child table will be merged up into the parent table. Otherwise,
+you can specify the key that data from the relationship will be
+returned in with an `:as` keyword, just like in a field spec. If no
+alias is specified, the data will be returned in the keyword form of
+the foreign key name.
+
+One-to-many:
+
+```clojure
+[foreign-key alias?]
+```
+
+In a one-to-many relationship, the foreign key is prefixed by an
+underscore, denoting that it's a column in the child table. This was
+borrowed from Datomic's syntax for specifying reverse references,
+which is the best defense I can offer against people who don't know
+Datomic and don't understand why an underscore would be used for this
+purpose.
+
+Optionally, an alias can be supplied. You probably want to supply an
+alias in almost every case, because otherwise the data will be
+returned in a `_{parent-id]` key which is pretty strange looking.
 
 ## License
 
-Copyright © 2017 Ladders
+Copyright © 2018 Ladders, PureFn
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
