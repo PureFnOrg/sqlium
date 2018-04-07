@@ -294,7 +294,7 @@ purpose.
 
 Optionally, an alias can be supplied. You probably want to supply an
 alias in almost every case, because otherwise the data will be
-returned in a `_{parent-id]` key which is pretty strange looking.
+returned in a `_{parent-id}` key which is pretty strange looking.
 
 ## License
 
