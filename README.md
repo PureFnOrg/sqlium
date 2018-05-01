@@ -296,6 +296,94 @@ Optionally, an alias can be supplied. You probably want to supply an
 alias in almost every case, because otherwise the data will be
 returned in a `_{parent-id}` key which is pretty strange looking.
 
+## Usage
+
+The two main API functions are in the org.purefn.sqlium namespace.
+
+```clj
+(require '[org.purefn.sqlium :as sqlium])
+```
+
+You can retrieve a single entity with the `entity` function. This is
+particularly useful for development and occasional production use -
+although it's not lightning fast. (Performance improvements coming!)
+
+```clj
+;; simple album spec with the album name and artist names
+(def album-spec
+  ;; specs are quoted
+  '(Table albums
+          :id "album_id"
+          :fields "name"
+          {["_album_id" :as "artists"]
+           (Table album_artists
+                  :id "album_artist_id"
+                  :fields
+                  {["artist_id" :flatten]
+                   (Table artists
+                          :id "artist_id"
+                          :fields "name")})}))
+
+;; sqlium takes anything that clojure.java.jdbc can use as a database
+(def db
+  {:dbtype "mysql"
+   :dbname "music"
+   :user "sqlium"
+   :password "sqlium"})
+
+;; assuming database id of "Abbey Road" is 12
+(sqlium/entity db album-spec 12)
+;; =>
+;; {:name "Abbey Road"
+;;  :artists [{:name "John"}
+;;            {:name "Paul"}
+;;            {:name "George"}
+;;            {:name "Ringo"}]}
+```
+
+The main use case for sqlium is extracting a lot of entities, done
+through the `records` function. It takes a database, spec, and some
+options to control what entities get returned. There are three
+different ways to do this.
+
+1. Entity age
+2. Entities with updates
+3. A table with rows pointing to records to get updated.
+
+Here's what the docstring says about it:
+
+```clj
+(defn records
+  "Returns a lazy sequence of records for spec, querying from jdbc
+   datasource db. Takes optional parameters as kwargs or a map to
+   either control expiry, return updated data since a given date by
+   comparing against provided date time fields, or return updated data
+   based on a specific update table. Only the highest-precedence
+   option present will be used. In order of precedence:
+
+   :update - a map with:
+     * :table    string name of the update table
+     * :id       string name of the column containing entity ids to update
+     * :updated  string name of the field containing the entity update time
+     * :date     anything that can be coerced to a DateTime; the records
+                 returned will be newer than this date
+
+   :delta - a map with:
+     * :fields   collection of :table/column datetime fields which will
+                 be compared with :date to detect updated data
+     * :date     anything that can be coerced to a DateTime; the records
+                 returned will be newer than this date
+
+   :expiry - a map with:
+     * :field    :table/column keyword for the datetime field that
+                 determines the age of the entity
+     * :age      maximum age before the entity is ignored, either as an
+                 integer number of days or an expiration date as something
+                 that can be coerced to a DateTime"
+  [db spec & options]
+  )
+```
+
 ## License
 
 Copyright © 2018 Ladders, PureFn
