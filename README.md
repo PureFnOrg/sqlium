@@ -298,6 +298,8 @@ returned in a `_{parent-id}` key which is pretty strange looking.
 
 ## Usage
 
+[API Docs](https://purefnorg.github.io/sqlium/)
+
 The two main API functions are in the org.purefn.sqlium namespace.
 
 ```clj
