@@ -10,4 +10,7 @@
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.11"]
                                   [mysql/mysql-connector-java "5.1.6"]
                                   [org.postgresql/postgresql "42.1.1"]]
+                   :plugins [[lein-codox "0.10.3"]]
+                   :codox {:namespaces [org.purefn.sqlium org.purefn.sqlium.import]
+                           :output-path "docs"}
                    :source-paths ["dev"]}})
