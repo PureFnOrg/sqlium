@@ -19,9 +19,9 @@
   [db spec id]
   (let [compiled-spec (dsl/compile-spec spec)
         xform (transform/group-transform (:grouped compiled-spec))]
-    (vary-meta (some-> (import/import-record db compiled-spec id)
-                       xform)
-               assoc ::id id)))
+    (some-> (import/import-record db compiled-spec id)
+            xform
+            (vary-meta assoc ::id id))))
 
 (defn records
   "Returns a lazy sequence of records for spec, querying from jdbc
