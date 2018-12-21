@@ -101,7 +101,7 @@
       (let [xformed (map xform (get-in record source-field))]
         (assoc-in data (vec path) xformed)))))
 
-(defn group-transform
+(defn group-transform*
   "Main API function. Takes a root table spec, returns a function that
    takes a record and transforms the data for the group - the root
    table and its relationships, recursively transforming many
@@ -117,3 +117,5 @@
                 (xf record xformed-data))
               (base-xform record)
               (concat single-transforms many-transforms)))))
+
+(def group-transform (memoize group-transform*))
