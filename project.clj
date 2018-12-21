@@ -7,6 +7,8 @@
                  [org.clojure/java.jdbc "0.6.1"]
                  [org.clojure/tools.logging "0.4.0"]
                  [clj-time "0.13.0"]]
+  :deploy-repositories [["releases" :clojars]
+                        ["snapshots" :clojars]]
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.11"]
                                   [mysql/mysql-connector-java "5.1.6"]
                                   [org.postgresql/postgresql "42.1.1"]]
