@@ -41,10 +41,12 @@
   [spec]
   (analyze/group-relationships spec))
 
-(defn compile-spec
+(defn compile-spec*
   "Takes a DSL spec, returns map with the parsed spec in :spec key,
    and grouped spec in :grouped key."
   [dsl-spec]
   (let [spec (parse-spec dsl-spec)]
     {:spec spec
      :grouped (group-spec spec)}))
+
+(def compile-spec (memoize compile-spec*))
