@@ -8,7 +8,8 @@
             [org.purefn.sqlium.dsl :as dsl]
             [org.purefn.sqlium.sql :as sql])
   (:import java.util.ArrayList
-           java.sql.ResultSet))
+           java.sql.ResultSet
+           (java.sql SQLException)))
 
 (def default-batch-size 10000)
 
@@ -39,8 +40,14 @@
   [db sql-with-aliases]
   (let [[sql col-aliases] sql-with-aliases]
     ;; TODO: fix jdbc call
-    (->> (jdbc/query db [sql])
-         (map #(set/rename-keys % col-aliases)))))
+    (try
+      (->> (jdbc/query db [sql])
+           (map #(set/rename-keys % col-aliases)))
+      ;TODO: possible improvement
+      ;- catch specific error codes only
+      ;- toggle try-catch on/off based on a config flag
+      (catch SQLException e
+        (log/error "Error querying database:  " (.getMessage e) "\n" e)))))
 
 (defn- result-set-column-list
   "Extracts a single column by name from each row of a ResultSet,
