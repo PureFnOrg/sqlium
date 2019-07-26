@@ -237,8 +237,14 @@
 
 (defn id-query
   "Takes parsed spec (not grouped) and returns query to retrieve the
-   ids, controlled by opts map."
-  [spec {:keys [limit offset delta expiry] :as opts}]
+   ids, controlled by opts map.
+
+   Fields specifying an update time (delta fields) can occur anywhere
+   in an entity, and also possibly in several places. This generates a
+   separate query for each specified delta field using the entity
+   spec, and then UNIONs them together into a single query for
+   efficient execution."
+  [spec {:keys [delta expiry] :as opts}]
   (let [tables (table-paths spec)
         conds (cond->
                   (when delta
@@ -280,62 +286,28 @@
                 (id-query spec opts))]
     (fetch-column db ids-q "id")))
 
-;; TODO: take db
-(defn import-table
-  "Takes an analyzed DSL spec with a table at the top level, and opts
+(defn fetch-records
+  "Takes an analyzed DSL entity spec, collection of entity ids, and opts
    map, and performs the queries to fetch the table data and its
    associated relationships. opts map has keys:
 
-    * :limit   Number of records to retrieve [unlimited]
-    * :offset  Starting record [0]
-    * :delta   Turns the import into a deltas import. A map with
-               parameters for retrieving deltas.
-    * :update-table  Also turns into ino a deltas import. Preferred
-               over :delta, if present. A map describing the table
-               that contains entity ids to update.
-    * :expiry  Spec for filter for records older than a specified
-               number of days.
-    * :batch   Batch size.
-
-   If present, the delta map should have keys:
-    * :fields  Collection of :table/column (datetime) fields that will
-               be used for update detection.
-    * :date    Date to be used for comparison. Anything that clj-time can
-               coerce to DateTime.
-
-   If present, the update-table map should have keys:
-    * :table     Name of the update table
-    * :id        Name of column with entity ids
-    * :updated   Name of column with entity update datetimes.
-    * :since     Datetime to return updates since.
-
-   If present, the expiry map should have keys:
-    * :field   The :table/column (datetime) field that will be used to
-               determine record age.
-    * :age     DateTime of the cutoff.
+    * :batch   Batch size, either a number or false to disable batching.
 
    The resulting records have keys in the form of :table/column for
    each group, and many-relationships
    in [:many-relationships :foreign-table/column] keys.
 
    Returns a lazy-seq of results."
-  ([db table-spec]
-   (import-table db table-spec {}))
-  ([db table-spec {:keys [limit offset delta expiry batch update-table]
-                   :or {batch default-batch-size} :as opts}]
-   (let [{:keys [grouped spec]} table-spec
+  ([db entity-spec ids]
+   (fetch-records db entity-spec ids {}))
+  ([db entity-spec ids {:keys [batch]
+                       :or {batch default-batch-size}}]
+   (let [{:keys [grouped spec]} entity-spec
          col-aliases (sql/group-column-mappings grouped)
          id-col (table-id grouped)
-         ids-q (if update-table
-                 (update-table-id-query update-table)
-                 (id-query spec opts))
-         _ (log/debug :fn "import-table"
-                      :msg "Fetching ids"
-                      :query ids-q)
-         ids (fetch-column db ids-q "id")
          cnt (count ids)
-         _ (log/info :fn "import-table"
-                     :msg (str "Fetched " cnt " ids"))
+         _ (log/info :fn "fetch-records"
+                     :msg (str "Fetching " cnt " ids"))
          data-query (str "SELECT " (sql/aliased-fields-statement col-aliases)
                          " " (sql/from-statement grouped false))
          many-rels (get-in grouped [:relationships :many])]
@@ -351,8 +323,8 @@
                 (let [cur-query (str data-query " WHERE "
                                      (sql/in-statement  {:field id-col
                                                          :vals cur}))
-                      _ (log/debug :fn "import-table"
-                                   :msg "Fetching next chunk of ids"
+                      _ (log/debug :fn "fetch-records"
+                                   :msg "Fetching next chunk of records"
                                    :query cur-query
                                    :position position
                                    :total cnt)
@@ -366,7 +338,9 @@
                               many-rels)]
                   (concat entity-data (next-batch (rest batches)
                                                   (+ position batch)))))))))
-        (partition-all batch ids))
+        (if (and (integer? batch) (pos? batch))
+          (partition-all batch ids)
+          ids))
        {:total cnt}))))
 
 (defn import-record
