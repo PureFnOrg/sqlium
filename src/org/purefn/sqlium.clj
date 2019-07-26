@@ -8,10 +8,10 @@
             [org.purefn.sqlium.import :as import]
             [org.purefn.sqlium.transform :as transform]))
 
-(defn record-id
-  "Returns the id of a record."
-  [record]
-  (::id (meta record)))
+(defn id
+  "Returns the id of an entity."
+  [entity]
+  (::id (meta entity)))
 
 (defn entity
   "Returns a single entity by id for given spec, querying from jdbc
@@ -23,13 +23,13 @@
             xform
             (vary-meta assoc ::id id))))
 
-(defn record-ids
-  "Returns an ArrayList of record ids for spec, according to supplied
-   selection options (which can be supplied either as a map or
-   kwargs). If no options are supplied, all record ids will be
-   returned. There are several types of selections possible. If
-   multiple selections are supplied, only the highest-precedence will
-   be used. From highest to lowest precedence:
+(defn entity-ids
+  "Returns an ArrayList of record ids for spec from jdbc datasource db
+   according to supplied selection options (which can be supplied
+   either as a map or kwargs). If no options are supplied, all record
+   ids will be returned. There are several types of selections
+   possible. If multiple selections are supplied, only the
+   highest-precedence will be used. From highest to lowest precedence:
 
    :update - a map with:
      * :table    string name of the update table
@@ -57,7 +57,7 @@
         compiled (dsl/compile-spec spec)]
     (import/fetch-ids db compiled opts)))
 
-(defn records
+(defn entities
   "Returns a lazy sequence of records for spec, querying from jdbc
    datasource db. Takes optional parameters as kwargs or a map that
    control which entities to retrieve and behavior about how they are
@@ -106,3 +106,19 @@
                                         {::id (id r)})))
                          records)
       (meta records))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Deprecated API functions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Deprecated in 0.2.0, will be removed in the future
+
+(def ^:deprecated
+  entity-id
+  "See: `id`"
+  id)
+
+(def ^:deprecated
+  records
+  "See: `entities`"
+  entities)
