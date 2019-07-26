@@ -23,6 +23,40 @@
             xform
             (vary-meta assoc ::id id))))
 
+(defn record-ids
+  "Returns an ArrayList of record ids for spec, according to supplied
+   selection options (which can be supplied either as a map or
+   kwargs). If no options are supplied, all record ids will be
+   returned. There are several types of selections possible. If
+   multiple selections are supplied, only the highest-precedence will
+   be used. From highest to lowest precedence:
+
+   :update - a map with:
+     * :table    string name of the update table
+     * :id       string name of the column containing entity ids to update
+     * :updated  string name of the field containing the entity update time
+     * :date     anything that can be coerced to a DateTime; the records
+                 returned will be newer than this date
+
+   :delta - a map with:
+     * :fields   collection of :table/column datetime fields which will
+                 be compared with :date to detect updated data
+     * :date     anything that can be coerced to a DateTime; the records
+                 returned will be newer than this date
+
+   :expiry - a map with:
+     * :field    :table/column keyword for the datetime field that
+                 determines the age of the entity
+     * :age      maximum age before the entity is ignored, either as an
+                 integer number of days or an expiration date as something
+                 that can be coerced to a DateTime"
+  [db spec & selection]
+  (let [opts (if (= (count options))
+               (first options)
+               (apply hash-map options))
+        compiled (dsl/compile-spec spec)]
+    (import/fetch-ids db compiled opts)))
+
 (defn records
   "Returns a lazy sequence of records for spec, querying from jdbc
    datasource db. Takes optional parameters as kwargs or a map to

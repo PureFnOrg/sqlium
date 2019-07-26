@@ -263,6 +263,20 @@
 ;; - returns a lazy seq, which will fetch the ids in batches of
 ;;   batch option or `default-batch-size`
 
+(defn fetch-ids
+  "Takes an analyzed DSL spec and selection options map, and returns an
+   ArrayList of ids.
+
+   The selections map has the same options as the main
+   API. :update, :delta and/or :expiry"
+  [db spec {:keys [delta expiry update-table]
+            :as opts}]
+  (let [id-col (table-id (:grouped spec))
+        ids-q (if update-table
+                (update-table-id-query update-table)
+                (id-query spec opts))]
+    (fetch-column db ids-q "id")))
+
 ;; TODO: take db
 (defn import-table
   "Takes an analyzed DSL spec with a table at the top level, and opts
