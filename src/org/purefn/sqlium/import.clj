@@ -232,6 +232,9 @@
                                   :comparator ">"
                                   :value (sql/mysql-date-string (tc/to-date-time since))})))))
 
+;; TODO: reconsider the interaction between expiry and delta here
+;; looks like expiry gets unioned in, meaning it will kinda clobber delta
+
 (defn id-query
   "Takes parsed spec (not grouped) and returns query to retrieve the
    ids, controlled by opts map."
