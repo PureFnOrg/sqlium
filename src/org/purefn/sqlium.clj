@@ -59,26 +59,36 @@
 
 (defn records
   "Returns a lazy sequence of records for spec, querying from jdbc
-   datasource db. Takes optional parameters as kwargs or a map to
-   either control expiry, return updated data since a given date by
-   comparing against provided date time fields, or return updated data
-   based on a specific update table. Only the highest-precedence
-   option present will be used. In order of precedence:
+   datasource db. Takes optional parameters as kwargs or a map that
+   control which entities to retrieve and behavior about how they are
+   retrieved.
 
-   :update - a map with:
-     * :table    string name of the update table
-     * :id       string name of the column containing entity ids to update
-     * :updated  string name of the field containing the entity update time
-     * :date     anything that can be coerced to a DateTime; the records
-                 returned will be newer than this date
+   There are several ways to specify which entities to fetch: a
+   specific list of ids, from a database table that lists ids with
+   update times, by using update datetimes in the entities themselves,
+   or entities that are newer than a given expiry. Only the
+   highest-precedence method supplied will be used. In order of
+   precedence:
 
-   :delta - a map with:
+    :ids        A collection of ids to retrieve.
+
+    :update - uses a database table that lists entity ids with update
+              dates, specified as a map with:
+     * :table    string name of the update table.
+     * :id       string name of the column containing entity ids.
+     * :updated  optional string name of the field containing the
+                 entity update datetime.
+     * :date     optional, anything that can be coerced to a DateTime.
+                 Only entities in the table with an updated datetime
+                 newer than this will be returned.
+
+    :delta - a map with:
      * :fields   collection of :table/column datetime fields which will
                  be compared with :date to detect updated data
      * :date     anything that can be coerced to a DateTime; the records
                  returned will be newer than this date
 
-   :expiry - a map with:
+    :expiry - a map with:
      * :field    :table/column keyword for the datetime field that
                  determines the age of the entity
      * :age      maximum age before the entity is ignored, either as an
