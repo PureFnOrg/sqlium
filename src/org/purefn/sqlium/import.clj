@@ -224,11 +224,13 @@
      * :updated   Name of column with entity update datetimes.
      * :since     Datetime to return updates since."
   [{:keys [table id updated since] :as update-map}]
-  (format "SELECT %s FROM %s WHERE %s"
-          id table
-          (sql/condition-sql {:column (keyword table updated)
-                              :comparator ">"
-                              :value (sql/mysql-date-string (tc/to-date-time since))})))
+  (str (format "SELECT %s FROM %s"
+               id table)
+       (when (and updated since)
+         (str "WHERE "
+              (sql/condition-sql {:column (keyword table updated)
+                                  :comparator ">"
+                                  :value (sql/mysql-date-string (tc/to-date-time since))})))))
 
 (defn id-query
   "Takes parsed spec (not grouped) and returns query to retrieve the
