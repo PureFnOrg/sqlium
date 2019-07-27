@@ -118,7 +118,7 @@
                (first options)
                (apply hash-map options))
         ids (or (:ids opts)
-                (entity-ids opts))
+                (entity-ids db spec opts))
         compiled (dsl/compile-spec spec)
         xform (transform/group-transform (:grouped compiled))
         id-col (dsl/id-column (:spec compiled))
