@@ -10,7 +10,17 @@
   (:import java.util.ArrayList
            java.sql.ResultSet))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Config defaults
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (def default-batch-size 10000)
+
+(def default-retries 2)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Helpers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn table-id
   "Returns keyword representing a table id field, eg :table/field."
@@ -36,11 +46,20 @@
   "Takes the [sql col-aliases] tuple as returned by `sql/select` and
    fetches the results, renaming the keys in the returned records
    using col-aliases."
-  [db sql-with-aliases]
-  (let [[sql col-aliases] sql-with-aliases]
-    ;; TODO: fix jdbc call
-    (->> (jdbc/query db [sql])
-         (map #(set/rename-keys % col-aliases)))))
+  [db sql-with-aliases opts]
+  (let [[sql col-aliases] sql-with-aliases
+        retries (:retries opts)
+        retries (if (and (integer? retries) (pos? retries))
+                  retries
+                  default-retries)]
+    ((fn q [retries]
+       (try (->> (jdbc/query db [sql] opts)
+                 (map #(set/rename-keys % col-aliases)))
+            (catch Throwable t
+              (if (pos? retries)
+                (q (dec retries))
+                (throw t)))))
+     retries)))
 
 (defn- result-set-column-list
   "Extracts a single column by name from each row of a ResultSet,
@@ -59,19 +78,22 @@
   (jdbc/db-query-with-resultset db [query] #(result-set-column-list % column)))
 
 (defn import-many-relationship
-  "Takes a db, a many relationship map and collection of source table data,
-   retrieves the related data and merges it into the table data."
-  [db rel data]
-  (when-let [sql-with-aliases (sql/many-relationship-select rel data)]
-    (log/debug :fn "import-many-relationship"
-               :query (first sql-with-aliases))
-    (let [many-data (fetch-results db sql-with-aliases)
-          many-rels (get-in rel [:target :relationships :many])]
-      (reduce (fn [data rel]
-                (let [rel-data (import-many-relationship db rel data)]
-                  (join-results rel data rel-data)))
-              many-data
-              many-rels))))
+  "Takes a db, a many relationship map, collection of source table data,
+   and optional query opts map, retrieves the related data and merges
+   it into the table data."
+  ([db rel data]
+   (import-many-relationship db rel data {}))
+  ([db rel data query-opts]
+   (when-let [sql-with-aliases (sql/many-relationship-select rel data)]
+     (log/debug :fn "import-many-relationship"
+                :query (first sql-with-aliases))
+     (let [many-data (fetch-results db sql-with-aliases query-opts)
+           many-rels (get-in rel [:target :relationships :many])]
+       (reduce (fn [data rel]
+                 (let [rel-data (import-many-relationship db rel data)]
+                   (join-results rel data rel-data)))
+               many-data
+               many-rels)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; fetching ids
@@ -291,7 +313,10 @@
    map, and performs the queries to fetch the table data and its
    associated relationships. opts map has keys:
 
-    * :batch   Batch size, either a number or false to disable batching.
+    * :batch    Batch size, either a number or false to disable
+                batching (ie. fetch all at once)
+    * :retries  Max number of retries [2]
+    * :timeout  Optional query timeout in milliseconds
 
    The resulting records have keys in the form of :table/column for
    each group, and many-relationships
@@ -301,7 +326,8 @@
   ([db entity-spec ids]
    (fetch-records db entity-spec ids {}))
   ([db entity-spec ids {:keys [batch]
-                       :or {batch default-batch-size}}]
+                        :or {batch default-batch-size}
+                        :as opts}]
    (let [{:keys [grouped spec]} entity-spec
          col-aliases (sql/group-column-mappings grouped)
          id-col (table-id grouped)
@@ -310,7 +336,8 @@
                      :msg (str "Fetching " cnt " ids"))
          data-query (str "SELECT " (sql/aliased-fields-statement col-aliases)
                          " " (sql/from-statement grouped false))
-         many-rels (get-in grouped [:relationships :many])]
+         many-rels (get-in grouped [:relationships :many])
+         query-opts (select-keys opts [:timeout :retries])]
      (with-meta
        ((fn next-batch
           ([batches]
@@ -328,10 +355,10 @@
                                    :query cur-query
                                    :position position
                                    :total cnt)
-                      table-data (fetch-results db [cur-query col-aliases])
+                      table-data (fetch-results db [cur-query col-aliases] query-opts)
                       entity-data
                       (reduce (fn [data rel]
-                                (if-let [rel-data (import-many-relationship db rel data)]
+                                (if-let [rel-data (import-many-relationship db rel data query-opts)]
                                   (join-results rel data rel-data)
                                   data))
                               table-data
@@ -354,7 +381,7 @@
                        " WHERE " (sql/condition-sql {:column id-col
                                                      :value entid}))
         many-rels (get-in grouped [:relationships :many])
-        ent-data (fetch-results db [ent-query col-aliases])]
+        ent-data (fetch-results db [ent-query col-aliases] {})]
     (first
      (reduce (fn [data rel]
                (if-let [rel-data (import-many-relationship db rel data)]

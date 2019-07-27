@@ -112,7 +112,14 @@
    Sqlium fetches entities in batches for efficiency. By default it
    uses a rather large batch size (10,000) suitable for smaller
    entities. You can override this by passing a number in the :batch
-   option or you can disable batching by setting :batch to false."
+   option or you can disable batching by setting :batch to false.
+
+   You can specify a query timeout in milliseconds in the :timeout
+   key.
+
+   By default, queries will be retried up to 3 total times (2
+   retries). You can override the number of retries in the :retries
+   key."
   [db spec & options]
   (let [opts (if (= 1 (count options))
                (first options)
