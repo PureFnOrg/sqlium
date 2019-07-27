@@ -23,8 +23,6 @@
             xform
             (vary-meta assoc ::id id))))
 
-;; TODO: consider adding query timeout and retry options
-
 (defn entity-ids
   "Returns an ArrayList of record ids for spec from jdbc datasource db
    according to supplied selection options (which can be supplied
